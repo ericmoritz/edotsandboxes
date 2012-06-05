@@ -35,8 +35,8 @@ in the Erlang shell or in a testing framework to ensure that it all
 functions correctly without involving HTML or a browser.
 
 We'll put off the details of the HTML5 client for now and concentrate
-on the game server. Just by the simple specification we can devise
-what agents are needed in this system.
+on the game server. With this simple specification we can devise
+what actors are needed in this system.
 
 The most obvious actor is a `Player`.  We also need some kind of actor
 that keeps track of who is who and their availability.  We will call
@@ -53,16 +53,18 @@ our system.
 
 ## Creating the edotsandboxes_server application
 
-Erlang/OTP has a way bundle up modules into a single component that solves a
-single purpose.  OTP calls this component an application.
+Erlang/OTP has a way bundle up modules into a single component that
+solves a single purpose.  OTP calls this component an application.
 
-Applications have single supervisor that watches over an application's core
-processes. 
+Applications have a single supervisor that watches over an
+application's core processes.
 
-The OTP convention is to keep these applications in a `apps/`
-directory if a project is a composite of applications. Project that are made
-up of a single application simple have a `src/` directory and no
-`apps/` directory that contains multiple application root.
+The OTP convention is to keep these applications in an `apps/`
+directory if a project is a composite of applications. Alternatively,
+projects that are made up of a single application simple have a `src/`
+directory and no `apps/` directory that contains multiple application
+root.  An example of such a project is Boundary's
+[folsom](https://github.com/boundary/folsom) metrics application.
 
 The directory structure for an OPT application contains the following:
 
@@ -71,18 +73,18 @@ The directory structure for an OPT application contains the following:
     priv/    - non-code resources
     src/     - code!
 
-Not all these directories are required.  Obviously you probably need a
+Not all these directories are required.  Obviously you will need a
 `src/` directory:
 
     mkdir -p apps/edotsandboxes_server/src
 
 Now that we got that out of the way, let's create our
-edotsandboxes_server application:
+`edotsandboxes_server` application:
 
     cd apps/edotsandboxes_server
     rebar create-app appid=edotsandboxes_server
 
-The output should show that some files were created in `src/`:
+The output shows that three files were created in `src/`:
 
     ==> edotsandboxes_server (create-app)
     Writing src/edotsandboxes_server.app.src
@@ -102,7 +104,7 @@ This starts our application and starts the
 [appmon](http://www.erlang.org/doc/man/appmon.html) graphical application
 monitor.  
 
-The main window, displays the currently running:
+The main window, displays the currently running applications:
 
 ![appmon main window](./static/appmon-mainwindow.png)
 
@@ -111,12 +113,13 @@ will be displayed:
 
 ![appmon app window](static/appmon-appwindow.png)
 
-Finally, if you click on the `edotsandboxes_server_sup` process, you will see the
-process's info:
+Finally, if you click on the `edotsandboxes_server_sup` process, you
+will see the process's info:
 
 ![appmon process info](static/appmon-procwindow.png)
 
-This data is useful for debugging
+`appmon` is one tool that is helpful in visualizing the structure of
+your application and monitoring the lifespan of processes.
 
 ## Conclusion
 
