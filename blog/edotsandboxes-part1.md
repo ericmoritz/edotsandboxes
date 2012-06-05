@@ -38,16 +38,18 @@ We'll put off the details of the HTML5 client for now and concentrate
 on the game server. Just by the simple specification we can devise
 what agents are needed in this system.
 
-The most obvious agent is a `Player`.  We also need some kind of agent
+The most obvious actor is a `Player`.  We also need some kind of actor
 that keeps track of who is who and their availibility.  We will call
-this agent a `Bouncer`. Finally we need an agent who keeps track of
-the game's state.  We'll call that agent simply a `Game Master`.
+this actor a `Bouncer`. Finally we need an actor who keeps track of
+the game's state.  We'll call that actor a `Game Master`.
 
-The beauty of Erlang is that agents in a system often map 1 to 1 to
-processes representing those agents.  I often unintentionally picture
-these agents in my head as living, breathing entities who have strict
-jobs to do in this system.  Erlang starts to feel a lot like Tron to
-me.
+The beauty of Erlang is that actors in a system often map 1 to 1 to
+processes representing those actors.  I often unintentionally picture
+these processes in my head as living, breathing entities who have
+strict jobs to do in this system.  Erlang starts to feel a lot like
+Tron to me.  Not all of these entities will become processes in our
+service, but it is good habit to think about which actors will be present in
+our system.
 
 ## Creating the edotsandboxes_server application
 
@@ -118,6 +120,9 @@ This data is useful for debugging
 
 ## Conclusion
 
-This concludes part one of this tutorial.  We created a basic service specification, identifed the required applications and the agents needed in our service and created the first required application.
+This concludes part one of this tutorial.  We created a basic service
+specification, identifed the actors in our system and created our
+first application.
 
-In the next installment, we'll write the code for the Game Master `gen_server`.
+In the next installment, we'll write the code for the Game Master
+`gen_server`.
