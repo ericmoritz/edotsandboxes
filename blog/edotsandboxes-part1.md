@@ -1,6 +1,6 @@
 # edotsandboxes
 
-This tutorial builds a massively multiplayer board game in Erlang and
+This tutorial builds a massively multi-player board game in Erlang and
 HTML5.
 
 The game is based on the old pen and paper game, [dots and
@@ -28,8 +28,8 @@ a rough specification.
  4. Players can interface with the game using an HTML5 client
 
 For flexibility, we will probably want to break up the game into two 
-applications, a game server and an HTML5 client.  Breaking up the
-service in this way will allow us to create future frontend interfaces
+components, a game server and an HTML5 client.  Breaking up the
+service in this way will allow us to create future front-end interfaces
 to this game.  Having a game server also enables us to play the game
 in the Erlang shell or in a testing framework to ensure that it all
 functions correctly without involving HTML or a browser.
@@ -39,7 +39,7 @@ on the game server. Just by the simple specification we can devise
 what agents are needed in this system.
 
 The most obvious actor is a `Player`.  We also need some kind of actor
-that keeps track of who is who and their availibility.  We will call
+that keeps track of who is who and their availability.  We will call
 this actor a `Bouncer`. Finally we need an actor who keeps track of
 the game's state.  We'll call that actor a `Game Master`.
 
@@ -66,10 +66,10 @@ up of a single application simple have a `src/` directory and no
 
 The directory structure for an OPT application contains the following:
 
-    `ebin/`    - .beam files and .app files
-    `include/` - .hrl header files
-    `priv/`    - non-code resources
-    `src/`     - code!
+    ebin/    - .beam files and .app files
+    include/ - .hrl header files
+    priv/    - non-code resources
+    src/     - code!
 
 Not all these directories are required.  Obviously you probably need a
 `src/` directory:
@@ -121,7 +121,7 @@ This data is useful for debugging
 ## Conclusion
 
 This concludes part one of this tutorial.  We created a basic service
-specification, identifed the actors in our system and created our
+specification, identified the actors in our system and created our
 first application.
 
 In the next installment, we'll write the code for the Game Master
