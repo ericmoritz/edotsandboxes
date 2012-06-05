@@ -56,12 +56,9 @@ our system.
 Erlang/OTP has a way bundle up modules into a single component that
 solves a single purpose.  OTP calls this component an application.
 
-Applications have a single supervisor that watches over an
-application's core processes.
-
 The OTP convention is to keep these applications in an `apps/`
 directory if a project is a composite of applications. Alternatively,
-projects that are made up of a single application simple have a `src/`
+projects that are made up of a single application simply have a `src/`
 directory and no `apps/` directory that contains multiple application
 root.  An example of such a project is Boundary's
 [folsom](https://github.com/boundary/folsom) metrics application.
