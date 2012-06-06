@@ -1,5 +1,5 @@
 -module(edotsandboxes_board).
--export([grid/1, mark_grid/3]).
+-export([grid/1, make_move/3]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -11,7 +11,7 @@
           right = false :: boolean(),
           bottom = false :: boolean(),
           left = false :: boolean(),
-          winner :: term()
+          winner :: userid()
          }).
 
 -record(grid, {
@@ -27,6 +27,7 @@
 -type cell() :: #cell{}.
 -type grid() :: #grid{}.
 -type line_error() :: too_long | diagonal | out_of_bounds | already_marked.
+-type userid() :: term().
 
 %% -----------
 %% Public API
@@ -36,18 +37,19 @@ grid(Size) ->
     Cells = dict:from_list(lists:map(fun(I) ->
                                              P = index_to_point(I, Size),
                                              {P, #cell{origin=P}}
-                                     end, lists:seq(0, Size*2))),
+                                     end, lists:seq(0, (Size*Size-1)))),
     #grid{size=Size,
           marked=sets:new(),
           cells=Cells}.
-                              
--spec mark_grid(term(), line(), grid()) -> {ok, grid()} | {error, line_error()}.
-mark_grid(UserId, {Point1, Point2}, Grid) when Point1 > Point2 ->
-    mark_grid(UserId, {Point2, Point1}, Grid);
-mark_grid(UserId, Line, Grid) ->    
+
+
+-spec make_move(userid(), line(), grid()) -> {ok, {Points :: integer(), grid()}} | {error, line_error()}.
+make_move(UserId, {Point1, Point2}, Grid) when Point1 > Point2 ->
+    make_move(UserId, {Point2, Point1}, Grid);
+make_move(UserId, Line, Grid) ->    
     case validate_line(Grid, Line) of
         true ->
-            {ok, mark_cells(Line, Grid)};
+            {ok, mark_cells(UserId, Line, Grid)};
         {error, Reason} ->
             {error, Reason}
     end.
@@ -84,17 +86,23 @@ validate_line(#grid{marked=Marked}, Line) ->
             true
     end.
 
--spec mark_cells(line(), grid()) -> grid().
-mark_cells(Line, #grid{size=Size} = Grid) ->
+-spec mark_cells(userid(), line(), grid()) -> {Points :: integer(), grid()}.
+mark_cells(UserId, Line, #grid{size=Size} = Grid) ->
     Origins = cells_for_line(Size, Line),
-    Grid2 = lists:foldl(fun(Origin, #grid{cells=Cells} = G) ->
-                                Cell = dict:fetch(Origin, Cells),
-                                {ok, Cell2} = mark_border(Line, Cell),
+    {Points, Grid2} = lists:foldl(fun(Origin, {Points, #grid{cells=Cells} = G}) ->
+                                Cell = mark_border(Line,
+                                                   dict:fetch(Origin, Cells)),
+                                {Point, Cell2} = case {is_closed(Cell), Cell#cell.winner} of
+                                            {true, undefined} ->
+                                                         {1, Cell#cell{winner=UserId}};
+                                                     _ ->
+                                                         {0, Cell}
+                                        end,
                                 Cells2 = dict:store(Origin, Cell2, Cells),
-                                G#grid{cells=Cells2}
-                        end, Grid, Origins),
-    Grid2#grid{marked=sets:add_element(Line, Grid2#grid.marked)}.
-    
+                                {Points + Point, G#grid{cells=Cells2}}
+                        end, {0, Grid}, Origins),
+    {Points, Grid2#grid{marked=sets:add_element(Line, Grid2#grid.marked)}}.
+
 
 -spec cells_for_line(GridSize :: integer(), Line :: line()) -> [point()].
 %% This function calculates the origins of cells that a line bisects.
@@ -143,13 +151,13 @@ cells_for_line(GridSize, {{X,Y}, {X2,Y}}) when X2 =:= X+1 ->
 which_border(Origin, {Point1, Point2}) when Point1 > Point2 ->
     which_border(Origin, {Point2, Point1});
 which_border({X,Y}, {{X,Y}, {X1,Y}}) when X + 1 =:= X1 ->
-    {ok, top};
+    top;
 which_border({X,Y}, {{X1,Y}, {X1,Y1}}) when X1 =:= X + 1, Y1 =:= Y + 1 ->
-    {ok, right};
+    right;
 which_border({X,Y}, {{X, Y1},{X1, Y1}}) when X1 =:= X + 1, Y1 =:= Y + 1 ->
-    {ok, bottom};
+    bottom;
 which_border({X,Y}, {{X,Y}, {X, Y1}}) when Y1 =:= Y + 1 ->
-    {ok, left}.
+    left.
 
 border_value(top, Val, Cell) ->
     Cell#cell{top=Val};
@@ -162,8 +170,8 @@ border_value(left, Val, Cell) ->
 
 -spec mark_border(cell(), line()) -> {ok, cell()}.
 mark_border(Line, #cell{origin=Origin} = Cell) ->
-    {ok, Border} =  which_border(Origin, Line),
-    {ok, border_value(Border, true, Cell)}.
+    Border =  which_border(Origin, Line),
+    border_value(Border, true, Cell).
 
 -spec is_closed(cell()) -> boolean().
 is_closed(#cell{top=true, right=true, bottom=true, left=true}) ->
@@ -196,26 +204,26 @@ cells_for_line_test_() ->
 
 which_border_test_() ->
     [
-     ?_assertEqual({ok, top},
+     ?_assertEqual(top,
                    which_border({0,0}, {{0,0}, {1,0}})),
-     ?_assertEqual({ok, right},
+     ?_assertEqual(right,
                    which_border({0,0}, {{1,0}, {1,1}})),
-     ?_assertEqual({ok, bottom},
+     ?_assertEqual(bottom,
                    which_border({0,0}, {{0,1}, {1,1}})),
-     ?_assertEqual({ok, left},
+     ?_assertEqual(left,
                    which_border({0,0}, {{0,0}, {0,1}}))
      ].
 
 mark_border_test_() ->
     Cell = #cell{origin={0,0}},
     [
-     ?_assertEqual({ok, Cell#cell{top=true}},
+     ?_assertEqual(Cell#cell{top=true},
                    mark_border({{0,0}, {1,0}}, Cell)),
-     ?_assertEqual({ok, Cell#cell{right=true}},
+     ?_assertEqual(Cell#cell{right=true},
                    mark_border({{1,0}, {1,1}}, Cell)),
-     ?_assertEqual({ok, Cell#cell{bottom=true}},
+     ?_assertEqual(Cell#cell{bottom=true},
                    mark_border({{0,1}, {1,1}}, Cell)),
-     ?_assertEqual({ok, Cell#cell{left=true}},
+     ?_assertEqual(Cell#cell{left=true},
                    mark_border({{0,0}, {0,1}}, Cell))
      ].
 
@@ -300,21 +308,21 @@ mark_cells_test_() ->
     Grid1 = grid(3),
 
     % Top of the {0,0} cell
-    Grid2 = mark_cells({{0,0}, {1,0}}, Grid1),
+    {0, Grid2} = mark_cells(eric, {{0,0}, {1,0}}, Grid1),
     Cell2 = dict:fetch({0,0}, Grid2#grid.cells),
 
     % Right of the {0,0} cell
-    Grid3 = mark_cells({{1,0}, {1,1}}, Grid2),
+    {0, Grid3} = mark_cells(eric, {{1,0}, {1,1}}, Grid2),
     Cell3 = dict:fetch({0,0}, Grid3#grid.cells),
     Cell4 = dict:fetch({1,0}, Grid3#grid.cells),
 
     % Bottom of the {0,0} cell
-    Grid4 = mark_cells({{0,1}, {1,1}}, Grid3),
+    {0, Grid4} = mark_cells(eric, {{0,1}, {1,1}}, Grid3),
     Cell5 = dict:fetch({0,0}, Grid4#grid.cells),
     Cell6 = dict:fetch({0,1}, Grid4#grid.cells),
 
     % Left of the {0,0} cell
-    Grid5 = mark_cells({{0,0}, {0,1}}, Grid4),
+    {1, Grid5} = mark_cells(eric, {{0,0}, {0,1}}, Grid4),
     Cell7 = dict:fetch({0,0}, Grid5#grid.cells),
 
     [
@@ -335,11 +343,8 @@ mark_cells_test_() ->
                          top=true,
                          right=true,
                          bottom=true,
-                         left=true}, Cell7),
-     ?_assertEqual(false,
-                   is_closed(Cell6)),
-     ?_assertEqual(true,
-                   is_closed(Cell7))
+                         winner=eric,
+                         left=true}, Cell7)
     ].
 -endif.
 
