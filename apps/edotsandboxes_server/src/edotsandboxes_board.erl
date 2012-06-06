@@ -1,5 +1,11 @@
+%%%--------------------------------------------------------------------- 
+%%% Description edotsandboxes_board
+%%%--------------------------------------------------------------------- 
+%%% Creates and Manipulates a dots and boxes game board
+%%%--------------------------------------------------------------------- 
+
 -module(edotsandboxes_board).
--export([grid/1, make_move/3]).
+-export([new/1, make_move/3]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -32,8 +38,9 @@
 %% -----------
 %% Public API
 %% ------------
--spec grid(Size :: integer()) -> grid().
-grid(Size) ->
+%% @doc Creates a square grid of cells with the origin in the top left
+-spec new(Size :: integer()) -> grid().
+new(Size) ->
     Cells = dict:from_list(lists:map(fun(I) ->
                                              P = index_to_point(I, Size),
                                              {P, #cell{origin=P}}
@@ -43,6 +50,7 @@ grid(Size) ->
           cells=Cells}.
 
 
+%% @doc places a line onto the board for using UserId
 -spec make_move(userid(), line(), grid()) -> {ok, {Points :: integer(), grid()}} | {error, line_error()}.
 make_move(UserId, {Point1, Point2}, Grid) when Point1 > Point2 ->
     make_move(UserId, {Point2, Point1}, Grid);
@@ -305,7 +313,7 @@ validate_line_test_() ->
      ].
 
 mark_cells_test_() ->
-    Grid1 = grid(3),
+    Grid1 = new(3),
 
     % Top of the {0,0} cell
     {0, Grid2} = mark_cells(eric, {{0,0}, {1,0}}, Grid1),
