@@ -63,7 +63,7 @@ directory and no `apps/` directory that contains multiple application
 root.  An example of such a project is Boundary's
 [folsom](https://github.com/boundary/folsom) metrics application.
 
-The directory structure for an OPT application contains the following:
+The directory structure for an OTP application contains the following:
 
     ebin/    - .beam files and .app files
     include/ - .hrl header files
@@ -73,7 +73,7 @@ The directory structure for an OPT application contains the following:
 Not all these directories are required.  Obviously you will need a
 `src/` directory:
 
-    mkdir -p apps/edotsandboxes_server/src
+    mkdir -p apps/edotsandboxes_server
 
 Now that we got that out of the way, let's create our
 `edotsandboxes_server` application:
