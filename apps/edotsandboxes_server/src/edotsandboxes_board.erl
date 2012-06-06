@@ -55,7 +55,7 @@ new(Size) ->
 make_move(UserId, {Point1, Point2}, Grid) when Point1 > Point2 ->
     make_move(UserId, {Point2, Point1}, Grid);
 make_move(UserId, Line, Grid) ->    
-    case validate_line(Grid, Line) of
+    case validate_move(Grid, Line) of
         true ->
             {ok, mark_cells(UserId, Line, Grid)};
         {error, Reason} ->
@@ -77,16 +77,16 @@ index_to_point(Index, Size) ->
     Y = (Index - X) div Size,
     {X,Y}.
     
--spec validate_line(grid(), line()) -> true | {error, line_error()}.
-validate_line(#grid{size=Size}, {{C1, _}, {C2, _}}) when C1 < 0; C2 < 0; C1 > Size - 1; C2 > Size - 1 ->
+-spec validate_move(grid(), line()) -> true | {error, line_error()}.
+validate_move(#grid{size=Size}, {{C1, _}, {C2, _}}) when C1 < 0; C2 < 0; C1 > Size - 1; C2 > Size - 1 ->
     {error, out_of_bound};    
-validate_line(#grid{size=Size}, {{_, C1}, {_, C2}}) when C1 < 0; C2 < 0; C1 > Size - 1; C2 > Size - 1 ->
+validate_move(#grid{size=Size}, {{_, C1}, {_, C2}}) when C1 < 0; C2 < 0; C1 > Size - 1; C2 > Size - 1 ->
     {error, out_of_bound};    
-validate_line(_, {{X1, Y1}, {X2, Y2}}) when X2 - X1 > 1;  Y2 - Y1 > 1 ->
+validate_move(_, {{X1, Y1}, {X2, Y2}}) when X2 - X1 > 1;  Y2 - Y1 > 1 ->
     {error, too_long};
-validate_line(_, {{X1, Y1}, {X2, Y2}}) when X1 < X2, Y1 < Y2 ->
+validate_move(_, {{X1, Y1}, {X2, Y2}}) when X1 < X2, Y1 < Y2 ->
     {error, diagonal};
-validate_line(#grid{marked=Marked}, Line) ->
+validate_move(#grid{marked=Marked}, Line) ->
     case sets:is_element(Line, Marked) of
         true ->
             {error, already_marked};
@@ -285,31 +285,31 @@ is_closed_test_() ->
      ?_assertEqual(false, is_closed(#cell{top=false, right=false,  bottom=false, left=true}))
      ].
 
-validate_line_test_() ->
-    Grid = grid(3),
+validate_move_test_() ->
+    Grid = new(3),
     Line = {{0,0}, {0,1}},
     MarkedGrid = Grid#grid{marked=sets:add_element(Line, Grid#grid.marked)},
 
     [
-     ?_assertEqual(true, validate_line(Grid, Line)),
+     ?_assertEqual(true, validate_move(Grid, Line)),
      ?_assertEqual({error, already_marked},
-                   validate_line(MarkedGrid, Line)),
+                   validate_move(MarkedGrid, Line)),
      ?_assertEqual({error, too_long},
-                   validate_line(Grid, {{0,0}, {0,2}})),
+                   validate_move(Grid, {{0,0}, {0,2}})),
      ?_assertEqual({error, too_long},
-                   validate_line(Grid, {{0,0}, {2,2}})),
+                   validate_move(Grid, {{0,0}, {2,2}})),
      ?_assertEqual({error, too_long},
-                   validate_line(Grid, {{0,0}, {2,0}})),
+                   validate_move(Grid, {{0,0}, {2,0}})),
      ?_assertEqual({error, diagonal},
-                   validate_line(Grid, {{0,0}, {1,1}})),
+                   validate_move(Grid, {{0,0}, {1,1}})),
      ?_assertEqual({error, out_of_bound},
-                   validate_line(Grid, {{0,-1}, {0,0}})),
+                   validate_move(Grid, {{0,-1}, {0,0}})),
      ?_assertEqual({error, out_of_bound},
-                   validate_line(Grid, {{-1,0}, {0,0}})),
+                   validate_move(Grid, {{-1,0}, {0,0}})),
      ?_assertEqual({error, out_of_bound},
-                   validate_line(Grid, {{2,0}, {3,0}})),
+                   validate_move(Grid, {{2,0}, {3,0}})),
      ?_assertEqual({error, out_of_bound},
-                   validate_line(Grid, {{0,3}, {0,3}}))
+                   validate_move(Grid, {{0,3}, {0,3}}))
      ].
 
 mark_cells_test_() ->
