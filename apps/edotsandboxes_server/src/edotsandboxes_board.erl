@@ -29,7 +29,6 @@
 -type dict(_Key, _Value) :: term().
 -type point() :: {integer(), integer()}.
 -type line() :: {point(), point()}.
--type index() :: integer().
 -type cell() :: #cell{}.
 -type grid() :: #grid{}.
 -type line_error() :: too_long | diagonal | out_of_bounds | already_marked.
@@ -65,10 +64,6 @@ make_move(UserId, Line, Grid) ->
 %% --------------------
 %% Internal Functions
 %% --------------------
--spec point_to_index(point(), integer()) -> index().
-point_to_index({X,Y}, Size) ->
-    Size * Y + X.
-
 -spec index_to_point(integer(), integer()) -> point().
 index_to_point(Index, Size) ->
     X = Index rem Size,
@@ -154,7 +149,7 @@ cells_for_line(GridSize, {{X,Y}, {X2,Y}}) when X2 =:= X+1 ->
             [TopOrigin]
     end.
 
--spec which_border(Origin :: point(), Line :: line()) -> {ok, top | right | bottom | left}.
+-spec which_border(Origin :: point(), Line :: line()) -> top | right | bottom | left.
 %% Given a cells origin, return which border a line is part of
 which_border(Origin, {Point1, Point2}) when Point1 > Point2 ->
     which_border(Origin, {Point2, Point1});
@@ -167,6 +162,7 @@ which_border({X,Y}, {{X, Y1},{X1, Y1}}) when X1 =:= X + 1, Y1 =:= Y + 1 ->
 which_border({X,Y}, {{X,Y}, {X, Y1}}) when Y1 =:= Y + 1 ->
     left.
 
+-spec border_value(atom(), boolean(), cell()) -> cell().
 border_value(top, Val, Cell) ->
     Cell#cell{top=Val};
 border_value(right, Val, Cell) ->
@@ -176,7 +172,7 @@ border_value(bottom, Val, Cell) ->
 border_value(left, Val, Cell) ->
     Cell#cell{left=Val}.
 
--spec mark_border(cell(), line()) -> {ok, cell()}.
+-spec mark_border(line(), cell()) -> cell().
 mark_border(Line, #cell{origin=Origin} = Cell) ->
     Border =  which_border(Origin, Line),
     border_value(Border, true, Cell).
@@ -245,18 +241,6 @@ index_to_point_test_() ->
                    index_to_point(2, 2)),
      ?_assertEqual({1,1},
                    index_to_point(3, 2))
-     ].
-
-point_to_index_test_() ->
-    [
-     ?_assertEqual(0,
-                   point_to_index({0,0}, 2)),
-     ?_assertEqual(1,
-                   point_to_index({1,0}, 2)),
-     ?_assertEqual(2,
-                   point_to_index({0,1}, 2)),
-     ?_assertEqual(3,
-                   point_to_index({1,1}, 2))
      ].
 
 is_closed_test_() ->
