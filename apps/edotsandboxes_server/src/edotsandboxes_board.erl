@@ -5,14 +5,14 @@
 %%%--------------------------------------------------------------------- 
 
 -module(edotsandboxes_board).
--export([new/1, make_move/3]).
+-export([grid/1, make_move/3]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--record(cell, {
-          origin :: point(),
+-record(box, {
+          position :: point(),
           top = false :: boolean(),
           right = false :: boolean(),
           bottom = false :: boolean(),
@@ -23,13 +23,13 @@
 -record(grid, {
           size :: integer(),
           marked :: sets(line()),
-          cells :: dict(point(), cell())}).
+          boxes :: dict(point(), box())}).
 
 -type sets(_Key) :: term().
 -type dict(_Key, _Value) :: term().
 -type point() :: {integer(), integer()}.
 -type line() :: {point(), point()}.
--type cell() :: #cell{}.
+-type box() :: #box{}.
 -type grid() :: #grid{}.
 -type line_error() :: too_long | diagonal | out_of_bounds | already_marked.
 -type userid() :: term().
@@ -37,16 +37,16 @@
 %% -----------
 %% Public API
 %% ------------
-%% @doc Creates a square grid of cells with the origin in the top left
--spec new(Size :: integer()) -> grid().
-new(Size) ->
-    Cells = dict:from_list(lists:map(fun(I) ->
+%% @doc Creates a square grid of boxes with the position in the top left
+-spec grid(Size :: integer()) -> grid().
+grid(Size) ->
+    Boxes = dict:from_list(lists:map(fun(I) ->
                                              P = index_to_point(I, Size),
-                                             {P, #cell{origin=P}}
+                                             {P, #box{position=P}}
                                      end, lists:seq(0, (Size*Size-1)))),
     #grid{size=Size,
           marked=sets:new(),
-          cells=Cells}.
+          boxes=Boxes}.
 
 
 %% @doc places a line onto the board for using UserId
@@ -56,7 +56,7 @@ make_move(UserId, {Point1, Point2}, Grid) when Point1 > Point2 ->
 make_move(UserId, Line, Grid) ->    
     case validate_move(Grid, Line) of
         true ->
-            {ok, mark_cells(UserId, Line, Grid)};
+            {ok, mark_boxes(UserId, Line, Grid)};
         {error, Reason} ->
             {error, Reason}
     end.
@@ -66,10 +66,8 @@ make_move(UserId, Line, Grid) ->
 %% --------------------
 -spec index_to_point(integer(), integer()) -> point().
 index_to_point(Index, Size) ->
-    X = Index rem Size,
-    % Size * Y + X = Index,
-    % Size * Y = Index - X,
-    Y = (Index - X) div Size,
+    Y = Index rem Size,
+    X = (Index - Y) div Size,
     {X,Y}.
     
 -spec validate_move(grid(), line()) -> true | {error, line_error()}.
@@ -89,70 +87,70 @@ validate_move(#grid{marked=Marked}, Line) ->
             true
     end.
 
--spec mark_cells(userid(), line(), grid()) -> {Points :: integer(), grid()}.
-mark_cells(UserId, Line, #grid{size=Size} = Grid) ->
-    Origins = cells_for_line(Size, Line),
-    {Points, Grid2} = lists:foldl(fun(Origin, {Points, #grid{cells=Cells} = G}) ->
-                                Cell = mark_border(Line,
-                                                   dict:fetch(Origin, Cells)),
-                                {Point, Cell2} = case {is_closed(Cell), Cell#cell.winner} of
+-spec mark_boxes(userid(), line(), grid()) -> {Points :: integer(), grid()}.
+mark_boxes(UserId, Line, #grid{size=Size} = Grid) ->
+    Positions = boxes_for_line(Size, Line),
+    {Points, Grid2} = lists:foldl(fun(Position, {Points, #grid{boxes=Boxes} = G}) ->
+                                Box = mark_border(Line,
+                                                   dict:fetch(Position, Boxes)),
+                                {Point, Box2} = case {is_closed(Box), Box#box.winner} of
                                             {true, undefined} ->
-                                                         {1, Cell#cell{winner=UserId}};
+                                                         {1, Box#box{winner=UserId}};
                                                      _ ->
-                                                         {0, Cell}
+                                                         {0, Box}
                                         end,
-                                Cells2 = dict:store(Origin, Cell2, Cells),
-                                {Points + Point, G#grid{cells=Cells2}}
-                        end, {0, Grid}, Origins),
+                                Boxes2 = dict:store(Position, Box2, Boxes),
+                                {Points + Point, G#grid{boxes=Boxes2}}
+                        end, {0, Grid}, Positions),
     {Points, Grid2#grid{marked=sets:add_element(Line, Grid2#grid.marked)}}.
 
 
--spec cells_for_line(GridSize :: integer(), Line :: line()) -> [point()].
-%% This function calculates the origins of cells that a line bisects.
+-spec boxes_for_line(GridSize :: integer(), Line :: line()) -> [point()].
+%% This function calculates the positions of boxes that a line bisects.
 %% This allows us to calculate 
-%% only bisects one cell.
-cells_for_line(GridSize, {Point1, Point2}) when Point1 > Point2 ->
+%% only bisects one box.
+boxes_for_line(GridSize, {Point1, Point2}) when Point1 > Point2 ->
     % The points are reversed
-    cells_for_line(GridSize, {Point2, Point1});
-cells_for_line(GridSize, {{X,Y}, {X,Y2}}) when Y2 =:= Y+1 -> 
-    % This line divides two cells vertically
-    LeftOrigin  = {X-1, Y},
-    RightOrigin = {X, Y},
+    boxes_for_line(GridSize, {Point2, Point1});
+boxes_for_line(GridSize, {{X,Y}, {X,Y2}}) when Y2 =:= Y+1 -> 
+    % This line divides two boxes vertically
+    LeftPosition  = {X-1, Y},
+    RightPosition = {X, Y},
     UpperBounds = GridSize - 1,
 
     if 
         % The line is not a left or right border
         X > 0 andalso X < UpperBounds ->
-            [LeftOrigin, RightOrigin];
+            [LeftPosition, RightPosition];
         % The line is on the left border, return the box to the right of it
         X == 0 ->
-            [RightOrigin];
+            [RightPosition];
         % The line is on the right border, return the box to the left of it
         X == UpperBounds ->
-            [LeftOrigin]
+            [LeftPosition]
     end;
-cells_for_line(GridSize, {{X,Y}, {X2,Y}}) when X2 =:= X+1 ->
-    % This line divides two cells horizontally
-    TopOrigin = {X, Y-1},
-    BottomOrigin = {X, Y},
+boxes_for_line(GridSize, {{X,Y}, {X2,Y}}) when X2 =:= X+1 ->
+    % This line divides two boxes horizontally
+    TopPosition = {X, Y-1},
+    BottomPosition = {X, Y},
     UpperBounds = GridSize - 1,
 
     % The line is not a top or bottom border
     if 
         Y > 0 andalso Y < UpperBounds ->
-            [TopOrigin, BottomOrigin];
+            [TopPosition, BottomPosition];
         % The line is the top border, return the box below it
         Y == 0 ->
-            [BottomOrigin];
+            [BottomPosition];
         % The line is a bottom border, return the box above it
         Y == UpperBounds ->
-            [TopOrigin]
+            [TopPosition]
     end.
 
--spec which_border(Origin :: point(), Line :: line()) -> top | right | bottom | left.
-%% Given a cells origin, return which border a line is part of
-which_border(Origin, {Point1, Point2}) when Point1 > Point2 ->
-    which_border(Origin, {Point2, Point1});
+-spec which_border(Position :: point(), Line :: line()) -> top | right | bottom | left.
+%% Given a boxes position, return which border a line is part of
+which_border(Position, {Point1, Point2}) when Point1 > Point2 ->
+    which_border(Position, {Point2, Point1});
 which_border({X,Y}, {{X,Y}, {X1,Y}}) when X + 1 =:= X1 ->
     top;
 which_border({X,Y}, {{X1,Y}, {X1,Y1}}) when X1 =:= X + 1, Y1 =:= Y + 1 ->
@@ -162,48 +160,48 @@ which_border({X,Y}, {{X, Y1},{X1, Y1}}) when X1 =:= X + 1, Y1 =:= Y + 1 ->
 which_border({X,Y}, {{X,Y}, {X, Y1}}) when Y1 =:= Y + 1 ->
     left.
 
--spec border_value(atom(), boolean(), cell()) -> cell().
-border_value(top, Val, Cell) ->
-    Cell#cell{top=Val};
-border_value(right, Val, Cell) ->
-    Cell#cell{right=Val};
-border_value(bottom, Val, Cell) ->
-    Cell#cell{bottom=Val};
-border_value(left, Val, Cell) ->
-    Cell#cell{left=Val}.
+-spec border_value(atom(), boolean(), box()) -> box().
+border_value(top, Val, Box) ->
+    Box#box{top=Val};
+border_value(right, Val, Box) ->
+    Box#box{right=Val};
+border_value(bottom, Val, Box) ->
+    Box#box{bottom=Val};
+border_value(left, Val, Box) ->
+    Box#box{left=Val}.
 
--spec mark_border(line(), cell()) -> cell().
-mark_border(Line, #cell{origin=Origin} = Cell) ->
-    Border =  which_border(Origin, Line),
-    border_value(Border, true, Cell).
+-spec mark_border(line(), box()) -> box().
+mark_border(Line, #box{position=Position} = Box) ->
+    Border =  which_border(Position, Line),
+    border_value(Border, true, Box).
 
--spec is_closed(cell()) -> boolean().
-is_closed(#cell{top=true, right=true, bottom=true, left=true}) ->
+-spec is_closed(box()) -> boolean().
+is_closed(#box{top=true, right=true, bottom=true, left=true}) ->
     true;
 is_closed(_) ->
     false.
 
 -ifdef(TEST).
-cells_for_line_test_() ->
+boxes_for_line_test_() ->
     [
      % top border
      ?_assertEqual([{0,0}],
-                   cells_for_line(3, {{0,0}, {1,0}})),
+                   boxes_for_line(3, {{0,0}, {1,0}})),
      % inside and horizontal
      ?_assertEqual([{0,0}, {0,1}],
-                   cells_for_line(3, {{0,1}, {1,1}})),
+                   boxes_for_line(3, {{0,1}, {1,1}})),
      % bottom border
      ?_assertEqual([{0,1}],
-                   cells_for_line(3, {{0,2}, {1,2}})),
+                   boxes_for_line(3, {{0,2}, {1,2}})),
      % left border
      ?_assertEqual([{0,0}],
-                   cells_for_line(3, {{0,0}, {0,1}})),
+                   boxes_for_line(3, {{0,0}, {0,1}})),
      % inside and vertical
      ?_assertEqual([{0,0}, {1,0}],
-                   cells_for_line(3, {{1,0}, {1,1}})),
+                   boxes_for_line(3, {{1,0}, {1,1}})),
      % right border
      ?_assertEqual([{1,0}],
-                   cells_for_line(3, {{2,0}, {2,1}}))
+                   boxes_for_line(3, {{2,0}, {2,1}}))
      ].
 
 which_border_test_() ->
@@ -219,58 +217,68 @@ which_border_test_() ->
      ].
 
 mark_border_test_() ->
-    Cell = #cell{origin={0,0}},
+    Box = #box{position={0,0}},
     [
-     ?_assertEqual(Cell#cell{top=true},
-                   mark_border({{0,0}, {1,0}}, Cell)),
-     ?_assertEqual(Cell#cell{right=true},
-                   mark_border({{1,0}, {1,1}}, Cell)),
-     ?_assertEqual(Cell#cell{bottom=true},
-                   mark_border({{0,1}, {1,1}}, Cell)),
-     ?_assertEqual(Cell#cell{left=true},
-                   mark_border({{0,0}, {0,1}}, Cell))
+     ?_assertEqual(Box#box{top=true},
+                   mark_border({{0,0}, {1,0}}, Box)),
+     ?_assertEqual(Box#box{right=true},
+                   mark_border({{1,0}, {1,1}}, Box)),
+     ?_assertEqual(Box#box{bottom=true},
+                   mark_border({{0,1}, {1,1}}, Box)),
+     ?_assertEqual(Box#box{left=true},
+                   mark_border({{0,0}, {0,1}}, Box))
      ].
 
 index_to_point_test_() ->
     [
      ?_assertEqual({0,0},
-                   index_to_point(0, 2)),
-     ?_assertEqual({1,0},
-                   index_to_point(1, 2)),
+                   index_to_point(0, 3)),
      ?_assertEqual({0,1},
-                   index_to_point(2, 2)),
+                   index_to_point(1, 3)),
+     ?_assertEqual({0,2},
+                   index_to_point(2, 3)),
+     ?_assertEqual({1,0},
+                   index_to_point(3, 3)),
      ?_assertEqual({1,1},
-                   index_to_point(3, 2))
+                   index_to_point(4, 3)),
+     ?_assertEqual({1,2},
+                   index_to_point(5, 3)),
+     ?_assertEqual({2,0},
+                   index_to_point(6, 3)),
+     ?_assertEqual({2,1},
+                   index_to_point(7, 3)),
+     ?_assertEqual({2,2},
+                   index_to_point(8, 3))
      ].
 
 is_closed_test_() ->
     [
      % 0 0 0 0
-     ?_assertEqual(false, is_closed(#cell{top=false, right=false,  bottom=false, left=false})),
+     ?_assertEqual(false, is_closed(#box{top=false, right=false,  bottom=false, left=false})),
      % 1 0 0 0
-     ?_assertEqual(false, is_closed(#cell{top=true, right=false,  bottom=false, left=false})),
+     ?_assertEqual(false, is_closed(#box{top=true, right=false,  bottom=false, left=false})),
      % 1 1 0 0
-     ?_assertEqual(false, is_closed(#cell{top=true, right=true,  bottom=false, left=false})),
+     ?_assertEqual(false, is_closed(#box{top=true, right=true,  bottom=false, left=false})),
      % 1 1 1 0
-     ?_assertEqual(false, is_closed(#cell{top=true, right=true,  bottom=true, left=false})),
+     ?_assertEqual(false, is_closed(#box{top=true, right=true,  bottom=true, left=false})),
      % 1 1 1 1
-     ?_assertEqual(true, is_closed(#cell{top=true, right=true,  bottom=true, left=true})),
+     ?_assertEqual(true, is_closed(#box{top=true, right=true,  bottom=true, left=true})),
      % 0 1 0 0
-     ?_assertEqual(false, is_closed(#cell{top=false, right=true,  bottom=false, left=false})),
+     ?_assertEqual(false, is_closed(#box{top=false, right=true,  bottom=false, left=false})),
      % 0 1 1 0
-     ?_assertEqual(false, is_closed(#cell{top=false, right=true,  bottom=true, left=false})),
+     ?_assertEqual(false, is_closed(#box{top=false, right=true,  bottom=true, left=false})),
      % 0 1 1 1
-     ?_assertEqual(false, is_closed(#cell{top=false, right=true,  bottom=true, left=true})),
+     ?_assertEqual(false, is_closed(#box{top=false, right=true,  bottom=true, left=true})),
      % 0 0 1 0
-     ?_assertEqual(false, is_closed(#cell{top=false, right=false,  bottom=true, left=false})),
+     ?_assertEqual(false, is_closed(#box{top=false, right=false,  bottom=true, left=false})),
      % 0 0 1 1
-     ?_assertEqual(false, is_closed(#cell{top=false, right=false,  bottom=true, left=true})),
+     ?_assertEqual(false, is_closed(#box{top=false, right=false,  bottom=true, left=true})),
      % 0 0 0 1
-     ?_assertEqual(false, is_closed(#cell{top=false, right=false,  bottom=false, left=true}))
+     ?_assertEqual(false, is_closed(#box{top=false, right=false,  bottom=false, left=true}))
      ].
 
 validate_move_test_() ->
-    Grid = new(3),
+    Grid = grid(3),
     Line = {{0,0}, {0,1}},
     MarkedGrid = Grid#grid{marked=sets:add_element(Line, Grid#grid.marked)},
 
@@ -296,47 +304,47 @@ validate_move_test_() ->
                    validate_move(Grid, {{0,3}, {0,3}}))
      ].
 
-mark_cells_test_() ->
-    Grid1 = new(3),
+mark_boxes_test_() ->
+    Grid1 = grid(3),
 
-    % Top of the {0,0} cell
-    {0, Grid2} = mark_cells(eric, {{0,0}, {1,0}}, Grid1),
-    Cell2 = dict:fetch({0,0}, Grid2#grid.cells),
+    % Top of the {0,0} box
+    {0, Grid2} = mark_boxes(eric, {{0,0}, {1,0}}, Grid1),
+    Box2 = dict:fetch({0,0}, Grid2#grid.boxes),
 
-    % Right of the {0,0} cell
-    {0, Grid3} = mark_cells(eric, {{1,0}, {1,1}}, Grid2),
-    Cell3 = dict:fetch({0,0}, Grid3#grid.cells),
-    Cell4 = dict:fetch({1,0}, Grid3#grid.cells),
+    % Right of the {0,0} box
+    {0, Grid3} = mark_boxes(eric, {{1,0}, {1,1}}, Grid2),
+    Box3 = dict:fetch({0,0}, Grid3#grid.boxes),
+    Box4 = dict:fetch({1,0}, Grid3#grid.boxes),
 
-    % Bottom of the {0,0} cell
-    {0, Grid4} = mark_cells(eric, {{0,1}, {1,1}}, Grid3),
-    Cell5 = dict:fetch({0,0}, Grid4#grid.cells),
-    Cell6 = dict:fetch({0,1}, Grid4#grid.cells),
+    % Bottom of the {0,0} box
+    {0, Grid4} = mark_boxes(eric, {{0,1}, {1,1}}, Grid3),
+    Box5 = dict:fetch({0,0}, Grid4#grid.boxes),
+    Box6 = dict:fetch({0,1}, Grid4#grid.boxes),
 
-    % Left of the {0,0} cell
-    {1, Grid5} = mark_cells(eric, {{0,0}, {0,1}}, Grid4),
-    Cell7 = dict:fetch({0,0}, Grid5#grid.cells),
+    % Left of the {0,0} box
+    {1, Grid5} = mark_boxes(eric, {{0,0}, {0,1}}, Grid4),
+    Box7 = dict:fetch({0,0}, Grid5#grid.boxes),
 
     [
-     ?_assertEqual(#cell{origin={0,0},
-                         top=true}, Cell2),
-     ?_assertEqual(#cell{origin={0,0},
+     ?_assertEqual(#box{position={0,0},
+                         top=true}, Box2),
+     ?_assertEqual(#box{position={0,0},
                          top=true,
-                         right=true}, Cell3),
-     ?_assertEqual(#cell{origin={1,0},
-                         left=true}, Cell4),
-     ?_assertEqual(#cell{origin={0,0},
+                         right=true}, Box3),
+     ?_assertEqual(#box{position={1,0},
+                         left=true}, Box4),
+     ?_assertEqual(#box{position={0,0},
                          top=true,
                          right=true,
-                         bottom=true}, Cell5),
-     ?_assertEqual(#cell{origin={0,1},
-                         top=true}, Cell6),
-     ?_assertEqual(#cell{origin={0,0},
+                         bottom=true}, Box5),
+     ?_assertEqual(#box{position={0,1},
+                         top=true}, Box6),
+     ?_assertEqual(#box{position={0,0},
                          top=true,
                          right=true,
                          bottom=true,
                          winner=eric,
-                         left=true}, Cell7)
+                         left=true}, Box7)
     ].
 -endif.
 
