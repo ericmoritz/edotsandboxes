@@ -16,7 +16,7 @@ lines and boxes.
 
 Let's create a new module called `src/edotsandboxes_board.erl`:
 
-    -module(edotsandboxes_board.erl).
+    -module(edotsandboxes_board).
 
 The code in the `edotsandboxes_board` will be fully functional and
 therefore easy to test.  So let's start with the tests:
